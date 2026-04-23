@@ -3,6 +3,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { reservationsAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { Card, CardContent } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table';
+import { Separator } from '../components/ui/separator';
+import { Plus, Loader2, Cpu, Server, Hexagon, CircuitBoard, Monitor } from 'lucide-react';
 
 function formatDT(ts) {
   if (!ts) return '—';
@@ -23,18 +30,24 @@ function isUpcoming(end) {
   return new Date(end) > new Date();
 }
 
-const STATUS_CLASS = {
-  Booked:    'badge-amber',
-  Completed: 'badge-green',
-  Cancelled: 'badge-red',
+const STATUS_BADGE = {
+  Booked:    'amber',
+  Completed: 'green',
+  Cancelled: 'red',
 };
 
 const NODE_ICON = {
-  GPU:    '⬥',
-  CPU:    '◈',
-  FPGA:   '⬡',
-  Server: '▪',
+  GPU:    Cpu,
+  CPU:    CircuitBoard,
+  FPGA:   Hexagon,
+  Server: Server,
+  Workstation: Monitor,
 };
+
+function NodeIcon({ type }) {
+  const Icon = NODE_ICON[type] || Cpu;
+  return <Icon className="w-3.5 h-3.5 text-text-low inline-block mr-1.5" />;
+}
 
 export default function MyBookingsPage({ onNavigateToBook }) {
   const { user } = useAuth();
@@ -42,7 +55,6 @@ export default function MyBookingsPage({ onNavigateToBook }) {
 
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('upcoming');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,120 +77,143 @@ export default function MyBookingsPage({ onNavigateToBook }) {
     r => r.status !== 'Booked' || !isUpcoming(r.end_time)
   );
 
-  const shown = tab === 'upcoming' ? upcoming : past;
-
   const totalHours = upcoming.reduce((acc, r) => {
     return acc + (new Date(r.end_time) - new Date(r.start_time)) / 3600000;
   }, 0);
 
+  const stats = [
+    { label: 'Active Bookings', value: upcoming.length, color: 'amber' },
+    { label: 'Completed', value: reservations.filter(r => r.status === 'Completed').length, color: 'green' },
+    { label: 'Hours Booked', value: `${totalHours.toFixed(1)}h`, color: 'blue' },
+    { label: 'Cancelled', value: reservations.filter(r => r.status === 'Cancelled').length, color: 'red' },
+  ];
+
+  function renderTable(rows) {
+    if (rows.length === 0) return null;
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>#</TableHead>
+            <TableHead>Node</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Location</TableHead>
+            <TableHead>Start</TableHead>
+            <TableHead>End</TableHead>
+            <TableHead>Duration</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map(r => (
+            <TableRow key={r.reservation_id}>
+              <TableCell className="text-text-low text-[11px]">#{r.reservation_id}</TableCell>
+              <TableCell>
+                <NodeIcon type={r.node_type} />
+                <strong className="text-text-hi font-medium">{r.node_name}</strong>
+              </TableCell>
+              <TableCell>
+                <Badge variant="muted">{r.node_type}</Badge>
+              </TableCell>
+              <TableCell>
+                {r.building_name
+                  ? `${r.building_name} · Fl ${r.floor_number} · Rm ${r.room_number}`
+                  : r.location_id || '—'}
+              </TableCell>
+              <TableCell>{formatDT(r.start_time)}</TableCell>
+              <TableCell>{formatDT(r.end_time)}</TableCell>
+              <TableCell className="text-cyan font-medium">
+                {duration(r.start_time, r.end_time)}
+              </TableCell>
+              <TableCell>
+                <Badge variant={STATUS_BADGE[r.status] || 'muted'}>
+                  {r.status}
+                </Badge>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  }
+
   return (
     <div>
-      <div className="page-header">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-7 pb-5 border-b border-border-dim">
         <div>
-          <h1 className="page-title">My Bookings</h1>
-          <p className="page-subtitle">Track all your hardware reservations, {user?.full_name?.split(' ')[0]}</p>
+          <h1 className="font-[family-name:--font-heading] text-[26px] font-extrabold">My Bookings</h1>
+          <p className="text-[13px] text-text-mid mt-0.5">
+            Track all your hardware reservations, {user?.full_name?.split(' ')[0]}
+          </p>
         </div>
-        <button className="btn btn-primary" onClick={onNavigateToBook}>
-          + Book Hardware
-        </button>
+        <Button onClick={onNavigateToBook}>
+          <Plus className="w-4 h-4" />
+          Book Hardware
+        </Button>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card c-amber">
-          <div className="stat-val">{upcoming.length}</div>
-          <div className="stat-lbl">Active Bookings</div>
-        </div>
-        <div className="stat-card c-green">
-          <div className="stat-val">{reservations.filter(r => r.status === 'Completed').length}</div>
-          <div className="stat-lbl">Completed</div>
-        </div>
-        <div className="stat-card c-blue">
-          <div className="stat-val">{totalHours.toFixed(1)}h</div>
-          <div className="stat-lbl">Hours Booked</div>
-        </div>
-        <div className="stat-card c-red">
-          <div className="stat-val">{reservations.filter(r => r.status === 'Cancelled').length}</div>
-          <div className="stat-lbl">Cancelled</div>
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3.5 mb-7">
+        {stats.map(s => (
+          <Card key={s.label} className="relative overflow-hidden">
+            <div className={`absolute top-0 left-0 right-0 h-0.5 bg-${s.color}`} />
+            <CardContent className="p-5">
+              <div className="font-[family-name:--font-heading] text-[34px] font-extrabold leading-none mb-1">
+                {s.value}
+              </div>
+              <div className="text-[11px] text-text-low uppercase tracking-[0.09em]">{s.label}</div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <div className="tabs">
-        <button className={`tab-btn${tab === 'upcoming' ? ' active' : ''}`} onClick={() => setTab('upcoming')}>
-          Upcoming ({upcoming.length})
-        </button>
-        <button className={`tab-btn${tab === 'past' ? ' active' : ''}`} onClick={() => setTab('past')}>
-          Past & Cancelled ({past.length})
-        </button>
-      </div>
+      {/* Tabs */}
+      <Tabs defaultValue="upcoming" className="w-full">
+        <TabsList className="mb-5">
+          <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
+          <TabsTrigger value="past">Past & Cancelled ({past.length})</TabsTrigger>
+        </TabsList>
 
-      {loading ? (
-        <div className="loading-row"><span className="spinner" /> Loading reservations…</div>
-      ) : shown.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">◫</div>
-          <div className="empty-title">
-            {tab === 'upcoming' ? 'No upcoming bookings' : 'No past bookings'}
-          </div>
-          <div className="empty-sub" style={{ marginBottom: 20 }}>
-            {tab === 'upcoming'
-              ? 'Book a lab node to get started'
-              : 'Your completed and cancelled reservations appear here'}
-          </div>
-          {tab === 'upcoming' && (
-            <button className="btn btn-primary" onClick={onNavigateToBook}>Book Now</button>
+        <TabsContent value="upcoming">
+          {loading ? (
+            <div className="flex items-center justify-center gap-3 py-12 text-text-mid">
+              <Loader2 className="w-4.5 h-4.5 animate-spin text-amber" />
+              Loading reservations…
+            </div>
+          ) : upcoming.length === 0 ? (
+            <div className="text-center py-16 text-text-low">
+              <div className="text-4xl mb-3 opacity-40">◫</div>
+              <div className="font-[family-name:--font-heading] text-base text-text-mid mb-1.5">
+                No upcoming bookings
+              </div>
+              <div className="text-[12px] mb-5">Book a lab node to get started</div>
+              <Button onClick={onNavigateToBook}>Book Now</Button>
+            </div>
+          ) : (
+            renderTable(upcoming)
           )}
-        </div>
-      ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Node</th>
-                <th>Type</th>
-                <th>Location</th>
-                <th>Start</th>
-                <th>End</th>
-                <th>Duration</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map(r => (
-                <tr key={r.reservation_id}>
-                  <td style={{ color: 'var(--text-low)', fontSize: 11 }}>
-                    #{r.reservation_id}
-                  </td>
-                  <td>
-                    <span style={{ marginRight: 7 }}>
-                      {NODE_ICON[r.node_type] || '◈'}
-                    </span>
-                    <strong>{r.node_name}</strong>
-                  </td>
-                  <td>
-                    <span className="badge badge-muted">{r.node_type}</span>
-                  </td>
-                  <td>
-                    {r.building_name
-                      ? `${r.building_name} · Fl ${r.floor_number} · Rm ${r.room_number}`
-                      : r.location_id || '—'}
-                  </td>
-                  <td>{formatDT(r.start_time)}</td>
-                  <td>{formatDT(r.end_time)}</td>
-                  <td style={{ color: 'var(--cyan)', fontWeight: 500 }}>
-                    {duration(r.start_time, r.end_time)}
-                  </td>
-                  <td>
-                    <span className={`badge ${STATUS_CLASS[r.status] || 'badge-muted'}`}>
-                      {r.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+        </TabsContent>
+
+        <TabsContent value="past">
+          {loading ? (
+            <div className="flex items-center justify-center gap-3 py-12 text-text-mid">
+              <Loader2 className="w-4.5 h-4.5 animate-spin text-amber" />
+              Loading reservations…
+            </div>
+          ) : past.length === 0 ? (
+            <div className="text-center py-16 text-text-low">
+              <div className="text-4xl mb-3 opacity-40">◫</div>
+              <div className="font-[family-name:--font-heading] text-base text-text-mid mb-1.5">
+                No past bookings
+              </div>
+              <div className="text-[12px]">Your completed and cancelled reservations appear here</div>
+            </div>
+          ) : (
+            renderTable(past)
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

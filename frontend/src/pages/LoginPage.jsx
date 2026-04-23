@@ -3,6 +3,11 @@ import { useState } from 'react';
 import { authAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { Card, CardContent } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Button } from '../components/ui/button';
+import { Cpu, Loader2 } from 'lucide-react';
 
 export default function LoginPage({ onSwitchToRegister }) {
   const { login } = useAuth();
@@ -24,7 +29,6 @@ export default function LoginPage({ onSwitchToRegister }) {
     setLoading(true);
     try {
       const data = await authAPI.login(form.roll_number, form.password);
-      // Expected response: { user_id, full_name, email, role, roll_number, token }
       login(
         {
           user_id:     data.user_id,
@@ -49,60 +53,87 @@ export default function LoginPage({ onSwitchToRegister }) {
 
   return (
     <div className="auth-shell">
-      <div className="auth-card">
-        <div className="auth-brand">
-          <div className="auth-brand-icon">⬡</div>
-          <span className="auth-brand-name">Silicon Scheduler</span>
-        </div>
-
-        <h1 className="auth-title">Sign in</h1>
-        <p className="auth-sub">Access the lab hardware booking system</p>
-
-        {error && <div className="err-box">{error}</div>}
-
-        <form onSubmit={handleSubmit}>
-          <div className="fgroup">
-            <label className="flabel">Roll Number</label>
-            <input
-              className="finput"
-              type="text"
-              placeholder="e.g. 22CS101"
-              value={form.roll_number}
-              onChange={set('roll_number')}
-              autoComplete="username"
-              autoFocus
-            />
+      <Card className="relative z-10 w-full max-w-[440px] mx-6 shadow-[0_0_0_1px_rgba(0,0,0,0.5),0_24px_64px_rgba(0,0,0,0.6)] border-border-mid rounded-[--radius-xl] animate-fade-up">
+        <CardContent className="p-10">
+          {/* Brand */}
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-[42px] h-[42px] bg-amber-3 border border-amber/30 rounded-[--radius-md] grid place-items-center">
+              <Cpu className="w-5 h-5 text-amber" />
+            </div>
+            <span className="font-[family-name:--font-heading] text-[19px] font-extrabold text-text-hi tracking-tight">
+              Silicon Scheduler
+            </span>
           </div>
 
-          <div className="fgroup">
-            <label className="flabel">Password</label>
-            <input
-              className="finput"
-              type="password"
-              placeholder="••••••••"
-              value={form.password}
-              onChange={set('password')}
-              autoComplete="current-password"
-            />
-          </div>
+          <h1 className="font-[family-name:--font-heading] text-[28px] font-extrabold mb-1.5">
+            Sign in
+          </h1>
+          <p className="text-[13px] text-text-mid mb-7">
+            Access the lab hardware booking system
+          </p>
 
-          <button
-            className="btn btn-primary btn-full btn-lg"
-            type="submit"
-            disabled={loading}
-            style={{ marginTop: 8 }}
-          >
-            {loading ? <><span className="spinner" style={{ width: 15, height: 15 }} /> Signing in…</> : 'Sign in →'}
-          </button>
-        </form>
+          {error && (
+            <div className="bg-red-2 border border-red/25 rounded-[--radius-md] px-4 py-3 text-red text-[13px] mb-4">
+              {error}
+            </div>
+          )}
 
-        <p className="auth-footer">
-          No account?{' '}
-          <span className="auth-link" onClick={onSwitchToRegister}>
-            Register here
-          </span>
-        </p>
-      </div>
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="roll_number">Roll Number</Label>
+                <Input
+                  id="roll_number"
+                  type="text"
+                  placeholder="e.g. 22CS101"
+                  value={form.roll_number}
+                  onChange={set('roll_number')}
+                  autoComplete="username"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={form.password}
+                  onChange={set('password')}
+                  autoComplete="current-password"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full mt-6"
+              size="lg"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Signing in…
+                </>
+              ) : (
+                'Sign in →'
+              )}
+            </Button>
+          </form>
+
+          <p className="mt-5 text-center text-[12px] text-text-mid">
+            No account?{' '}
+            <span
+              className="text-amber cursor-pointer font-medium hover:underline"
+              onClick={onSwitchToRegister}
+            >
+              Register here
+            </span>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

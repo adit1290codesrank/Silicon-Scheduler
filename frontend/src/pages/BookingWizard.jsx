@@ -3,6 +3,17 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { locationsAPI, nodesAPI, reservationsAPI, predictAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { cn } from '../lib/utils';
+import { 
+  Cpu, CircuitBoard, Hexagon, Server, Monitor, 
+  CalendarDays, MapPin, Zap, CheckCircle2, ArrowRight, ArrowLeft,
+  Loader2, Clock, AlertTriangle
+} from 'lucide-react';
 
 /* ── Helpers ────────────────────────────────────────────── */
 function toISO(localDT) {
@@ -56,16 +67,16 @@ const HOURS   = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const MINUTES = ['00', '15', '30', '45'];
 
 const NODE_ICON = {
-  'Server':        '▪',
-  'GPU Node':      '⬥',
-  'FPGA':          '⬡',
-  'Cluster':       '⬢',
-  'Supercomputer': '⚡',
-  'Workstation':   '◉',
+  'Server':        Server,
+  'GPU Node':      Cpu,
+  'FPGA':          Hexagon,
+  'Cluster':       CircuitBoard,
+  'Supercomputer': Zap,
+  'Workstation':   Monitor,
 };
 
 function getNodeIcon(type) {
-  return NODE_ICON[type] || '◈';
+  return NODE_ICON[type] || Cpu;
 }
 
 /* ── Surge Logic ────────────────────────────────────────── */
@@ -76,17 +87,14 @@ function getSurgeMax(load) {
 }
 
 function surgeColour(load) {
-  if (load > 0.80) return 'var(--red)';
-  if (load > 0.50) return 'var(--amber)';
-  return 'var(--green)';
+  if (load > 0.80) return 'text-red';
+  if (load > 0.50) return 'text-amber';
+  return 'text-green';
 }
 
 function heatmapCellBg(load) {
-  // Cap between 0 and 1
   const safeLoad = Math.min(Math.max(load, 0), 1);
-  // Hue 120 = Green, Hue 0 = Red
   const hue = (1 - safeLoad) * 120;
-  // Increase opacity dynamically
   const alpha = 0.15 + (safeLoad * 0.7);
   return `hsla(${hue}, 85%, 50%, ${alpha.toFixed(2)})`;
 }
@@ -97,7 +105,12 @@ function surgeTierLabel(load) {
   return 'NORMAL';
 }
 
-// ALIGNMENT FIX: Start with Monday to match Backend ISO-DOW 1-7
+function surgeBadgeVariant(load) {
+  if (load > 0.80) return 'red';
+  if (load > 0.50) return 'amber';
+  return 'green';
+}
+
 const DAY_LABELS  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const HOUR_LABELS = Array.from({ length: 24 }, (_, i) => {
   if (i === 0)  return '12am';
@@ -110,45 +123,26 @@ const HOUR_LABELS = Array.from({ length: 24 }, (_, i) => {
 function DateTimePicker({ label, value, minDate, onChange }) {
   const { date, hour, minute, period } = parseDT(value);
   const update = (d, h, m, p) => onChange(composeDT(d, h, m, p));
+  const selectClasses = "flex rounded-[--radius-md] border border-border-mid bg-input px-3.5 py-2.5 text-[13px] font-[family-name:--font-mono] text-text-hi outline-none focus:border-amber focus:shadow-[0_0_0_3px_rgba(245,166,35,0.07)] cursor-pointer appearance-none bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%2710%27%20height=%276%27%3E%3Cpath%20d=%27M0%200l5%206%205-6z%27%20fill=%27%2355608a%27/%3E%3C/svg%3E')] bg-no-repeat bg-[right_13px_center] pr-9";
 
   return (
-    <div className="fgroup">
-      <label className="flabel">{label}</label>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <input
+    <div className="mb-4">
+      <Label>{label}</Label>
+      <div className="flex gap-2.5">
+        <Input
           type="date"
-          className="finput"
-          style={{ flex: '2 1 130px', minWidth: 0 }}
+          className="flex-[2] min-w-[130px]"
           value={date}
           min={minDate || TODAY}
           onChange={e => update(e.target.value, hour, minute, period)}
         />
-        <select
-          className="fselect"
-          style={{ flex: '1 1 58px', minWidth: 0, paddingRight: 8 }}
-          value={hour}
-          onChange={e => update(date, e.target.value, minute, period)}
-        >
-          {HOURS.map(h => (
-            <option key={h} value={String(h)}>{String(h).padStart(2, '0')}</option>
-          ))}
+        <select className={cn(selectClasses, "flex-1")} value={hour} onChange={e => update(date, e.target.value, minute, period)}>
+          {HOURS.map(h => <option key={h} value={String(h)}>{String(h).padStart(2, '0')}</option>)}
         </select>
-        <select
-          className="fselect"
-          style={{ flex: '1 1 58px', minWidth: 0, paddingRight: 8 }}
-          value={minute}
-          onChange={e => update(date, hour, e.target.value, period)}
-        >
-          {MINUTES.map(m => (
-            <option key={m} value={m}>{m}</option>
-          ))}
+        <select className={cn(selectClasses, "flex-1")} value={minute} onChange={e => update(date, hour, e.target.value, period)}>
+          {MINUTES.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
-        <select
-          className="fselect"
-          style={{ flex: '1 1 58px', minWidth: 0, paddingRight: 8 }}
-          value={period}
-          onChange={e => update(date, hour, minute, e.target.value)}
-        >
+        <select className={cn(selectClasses, "flex-1")} value={period} onChange={e => update(date, hour, minute, e.target.value)}>
           <option value="AM">AM</option>
           <option value="PM">PM</option>
         </select>
@@ -165,7 +159,6 @@ function SurgeHeatmap({ heatmap, startISO }) {
     return m;
   }, [heatmap]);
 
-  // Convert JS getDay (0=Sun) to ISO Day (7=Sun)
   const jsDay = startISO ? new Date(startISO).getDay() : -1;
   const activeIsoDay = jsDay === 0 ? 7 : jsDay;
   const activeHour = startISO ? new Date(startISO).getHours() : -1;
@@ -173,56 +166,46 @@ function SurgeHeatmap({ heatmap, startISO }) {
   if (!heatmap || heatmap.length === 0) return null;
 
   return (
-    <div style={{ marginBottom: 24 }}>
-      {/* Legend */}
-      <div style={{
-        display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', marginBottom: 10,
-        flexWrap: 'wrap', gap: 8,
-      }}>
-        <span style={{ fontSize: 11, color: 'var(--text-label)', textTransform: 'uppercase', letterSpacing: '0.09em', fontWeight: 500 }}>
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
+        <span className="text-[11px] text-text-label uppercase tracking-[0.09em] font-medium">
           Predicted Load Heatmap (7 × 24)
         </span>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div className="flex gap-3 items-center">
           {[
             { label: 'Normal ≤50%',  color: 'hsla(120, 85%, 50%, 0.3)' },
             { label: 'Surge 50-80%', color: 'hsla(35, 85%, 50%, 0.6)' },
             { label: 'High >80%',    color: 'hsla(0, 85%, 50%, 0.9)' },
           ].map(({ label, color }) => (
-            <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--text-mid)' }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: color, display: 'inline-block', border: '1px solid rgba(255,255,255,0.08)' }} />
+            <span key={label} className="flex items-center gap-1.5 text-[10px] text-text-mid">
+              <span className="w-2.5 h-2.5 rounded-sm border border-white/10" style={{ background: color }} />
               {label}
             </span>
           ))}
         </div>
       </div>
 
-      <div style={{ overflowX: 'auto', borderRadius: 'var(--r-lg)', border: '1px solid var(--border-dim)' }}>
-        <div style={{ minWidth: 420 }}>
-          {/* Day header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '36px repeat(7, 1fr)', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-dim)' }}>
+      <div className="overflow-x-auto rounded-[--radius-lg] border border-border-dim">
+        <div className="min-w-[420px]">
+          <div className="grid grid-cols-[36px_repeat(7,1fr)] bg-surface border-b border-border-dim">
             <div />
             {DAY_LABELS.map((d, idx) => (
-              <div key={d} style={{
-                textAlign: 'center', padding: '6px 0', fontSize: 10, fontWeight: 600,
-                letterSpacing: '0.06em', textTransform: 'uppercase',
-                color: (idx + 1) === activeIsoDay ? 'var(--amber)' : 'var(--text-label)',
-              }}>{d}</div>
+              <div key={d} className={cn(
+                "text-center py-1.5 text-[10px] font-semibold tracking-[0.06em] uppercase",
+                (idx + 1) === activeIsoDay ? "text-amber" : "text-text-label"
+              )}>{d}</div>
             ))}
           </div>
 
-          {/* 24 hour rows */}
           {HOUR_LABELS.map((hlabel, hour) => (
-            <div key={hour} style={{
-              display: 'grid', gridTemplateColumns: '36px repeat(7, 1fr)',
-              borderBottom: hour < 23 ? '1px solid rgba(255,255,255,0.03)' : 'none',
-            }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-                paddingRight: 6, fontSize: 9, userSelect: 'none', letterSpacing: '0.04em',
-                color: hour === activeHour ? 'var(--amber)' : 'var(--text-low)',
-                fontWeight: hour === activeHour ? 700 : 400,
-              }}>
+            <div key={hour} className={cn(
+              "grid grid-cols-[36px_repeat(7,1fr)]",
+              hour < 23 ? "border-b border-white/[0.03]" : ""
+            )}>
+              <div className={cn(
+                "flex items-center justify-end pr-1.5 text-[9px] select-none tracking-[0.04em]",
+                hour === activeHour ? "text-amber font-bold" : "text-text-low font-normal"
+              )}>
                 {hlabel}
               </div>
               {DAY_LABELS.map((_, idx) => {
@@ -233,14 +216,11 @@ function SurgeHeatmap({ heatmap, startISO }) {
                   <div
                     key={idx}
                     title={`${DAY_LABELS[idx]} ${hlabel} — load: ${(load * 100).toFixed(0)}% (max ${getSurgeMax(load)}h)`}
+                    className="h-3.5 relative transition-colors duration-200"
                     style={{
-                      height: 14,
                       background: isActive ? 'transparent' : heatmapCellBg(load),
-                      outline: isActive ? '2px solid var(--amber)' : 'none',
+                      outline: isActive ? '2px solid var(--color-amber)' : 'none',
                       outlineOffset: '-1px',
-                      position: 'relative',
-                      cursor: 'default',
-                      transition: 'background 0.2s',
                     }}
                   />
                 );
@@ -249,8 +229,7 @@ function SurgeHeatmap({ heatmap, startISO }) {
           ))}
         </div>
       </div>
-
-      <p style={{ fontSize: 10, color: 'var(--text-low)', marginTop: 6, lineHeight: 1.5 }}>
+      <p className="text-[10px] text-text-low mt-1.5 leading-relaxed">
         Highlighted cell = your selected start time. Red = higher predicted load = shorter max duration.
       </p>
     </div>
@@ -260,25 +239,36 @@ function SurgeHeatmap({ heatmap, startISO }) {
 /* ── Step indicators ───────────────────────────────────── */
 function WizardSteps({ step, maxDone, onGoTo }) {
   const steps = [
-    { num: 1, label: 'Time Window' },
-    { num: 2, label: 'Location'    },
-    { num: 3, label: 'Select Node' },
+    { num: 1, label: 'Time Window', icon: Clock },
+    { num: 2, label: 'Location',    icon: MapPin },
+    { num: 3, label: 'Select Node', icon: Cpu },
   ];
   return (
-    <div className="wizard-steps">
+    <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2">
       {steps.map((s, i) => {
         const isActive = step === s.num;
         const isDone   = s.num < step && s.num <= maxDone;
+        const Icon = s.icon;
         return (
-          <div key={s.num} style={{ display: 'flex', alignItems: 'center' }}>
+          <div key={s.num} className="flex items-center">
             <div
-              className={`wstep${isActive ? ' active' : ''}${isDone ? ' done' : ''}`}
               onClick={isDone ? () => onGoTo(s.num) : undefined}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-all border",
+                isActive ? "bg-amber-2 text-amber border-amber/25" : 
+                isDone ? "bg-surface text-text-hi border-border-mid cursor-pointer hover:bg-elevated" : 
+                "bg-transparent text-text-low border-transparent opacity-50"
+              )}
             >
-              <span className="wstep-num">{isDone ? '✓' : s.num}</span>
-              <span className="wstep-lbl">{s.label}</span>
+              {isDone ? <CheckCircle2 className="w-3.5 h-3.5 text-green" /> : <Icon className="w-3.5 h-3.5" />}
+              {s.label}
             </div>
-            {i < steps.length - 1 && <div className="wstep-connector" />}
+            {i < steps.length - 1 && (
+              <div className={cn(
+                "w-8 h-px mx-2",
+                isDone ? "bg-border-lit" : "bg-border-dim"
+              )} />
+            )}
           </div>
         );
       })}
@@ -289,22 +279,14 @@ function WizardSteps({ step, maxDone, onGoTo }) {
 /* ── Step 1: Time Selection ─────────────────────────────── */
 function StepTime({ value, onChange, onNext }) {
   const [error, setError] = useState('');
-
-  // ── Heatmap state — owned here, refetched when filters change ──
   const [heatmap,        setHeatmap]        = useState(null);
   const [heatmapLoading, setHeatmapLoading] = useState(true);
   const [filterLocation, setFilterLocation] = useState('');
   const [filterNodeType, setFilterNodeType] = useState('');
   const [locations,      setLocations]      = useState([]);
 
-  // Load locations once for the filter dropdown
-  useEffect(() => {
-    locationsAPI.list()
-      .then(setLocations)
-      .catch(() => {});
-  }, []);
+  useEffect(() => { locationsAPI.list().then(setLocations).catch(() => {}); }, []);
 
-  // Re-fetch heatmap whenever a filter changes
   useEffect(() => {
     setHeatmapLoading(true);
     const filters = {};
@@ -317,7 +299,6 @@ function StepTime({ value, onChange, onNext }) {
       .finally(() => setHeatmapLoading(false));
   }, [filterLocation, filterNodeType]);
 
-  // Build lookup from heatmap data
   const heatMap = useMemo(() => {
     const m = {};
     (heatmap || []).forEach(({ day, hour, load }) => { m[`${day}-${hour}`] = load; });
@@ -333,22 +314,15 @@ function StepTime({ value, onChange, onNext }) {
   }, [value.start, heatMap]);
 
   const surgeMax = getSurgeMax(startLoad);
-
-  const diffH = value.start && value.end
-    ? (new Date(value.end) - new Date(value.start)) / 3600000
-    : 0;
-
+  const diffH = value.start && value.end ? (new Date(value.end) - new Date(value.start)) / 3600000 : 0;
   const isSurgeViolation = diffH > 0 && diffH > surgeMax;
   const hasSurgeData     = heatmap && heatmap.length > 0;
-  const tierLabel        = hasSurgeData ? surgeTierLabel(startLoad) : null;
-  const tierColour       = hasSurgeData ? surgeColour(startLoad) : 'var(--cyan)';
+  
+  const selectClasses = "flex rounded-[--radius-md] border border-border-mid bg-input px-3.5 py-1.5 text-[12px] font-[family-name:--font-mono] text-text-hi outline-none focus:border-amber focus:shadow-[0_0_0_3px_rgba(245,166,35,0.07)] cursor-pointer appearance-none bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%2710%27%20height=%276%27%3E%3Cpath%20d=%27M0%200l5%206%205-6z%27%20fill=%27%2355608a%27/%3E%3C/svg%3E')] bg-no-repeat bg-[right_13px_center] pr-9";
 
   function validate() {
     setError('');
-    if (!value.start || !value.end) {
-      setError('Please select both start and end times.');
-      return;
-    }
+    if (!value.start || !value.end) { setError('Please select both start and end times.'); return; }
     const s = new Date(value.start);
     const e = new Date(value.end);
     if (s <= new Date()) { setError('Start time must be in the future.'); return; }
@@ -356,11 +330,7 @@ function StepTime({ value, onChange, onNext }) {
     const durH = (e - s) / 3600000;
     if (durH < 0.5) { setError('Minimum booking duration is 30 minutes.'); return; }
     if (hasSurgeData && durH > surgeMax) {
-      setError(
-        `Surge limit active: max booking is ${surgeMax}h at this time ` +
-        `(predicted load ${(startLoad * 100).toFixed(0)}%). ` +
-        `Reduce your end time or pick a lower-demand slot.`
-      );
+      setError(`Surge limit active: max booking is ${surgeMax}h at this time (predicted load ${(startLoad * 100).toFixed(0)}%). Reduce your end time or pick a lower-demand slot.`);
       return;
     }
     if (durH > 12) { setError('Maximum booking duration is 12 hours.'); return; }
@@ -368,202 +338,104 @@ function StepTime({ value, onChange, onNext }) {
   }
 
   return (
-    <div className="card" style={{ maxWidth: 580 }}>
-      <div className="card-hd">
-        <span className="card-title">📅 Select Time Window</span>
+    <Card className="max-w-[580px] animate-fade-up">
+      <CardHeader className="flex flex-row items-center justify-between pb-4">
+        <div>
+          <CardTitle className="flex items-center gap-2"><Clock className="w-5 h-5 text-amber" /> Time Window</CardTitle>
+          <p className="text-[13px] text-text-mid mt-1.5 leading-relaxed">
+            Choose when you need the hardware. The system uses B-Tree indexed availability checks — results are instant.
+          </p>
+        </div>
         {hasSurgeData && (
-          <span className="badge" style={{
-            background: startLoad > 0.80 ? 'var(--red-2)' : startLoad > 0.50 ? 'var(--amber-2)' : 'var(--green-2)',
-            color:      surgeColour(startLoad),
-            border:     `1px solid ${surgeColour(startLoad)}44`,
-            fontSize: 10,
-          }}>
-            {tierLabel}
-          </span>
+          <Badge variant={surgeBadgeVariant(startLoad)} className="shrink-0">{surgeTierLabel(startLoad)}</Badge>
         )}
-      </div>
+      </CardHeader>
+      <CardContent>
+        {error && <div className="bg-red-2 border border-red/25 rounded-[--radius-md] px-4 py-3 text-red text-[13px] mb-5">{error}</div>}
 
-      <p style={{ color: 'var(--text-mid)', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-        Choose when you need the hardware. The system uses B-Tree indexed availability checks — results are instant.
-      </p>
+        <DateTimePicker label="Start Time" value={value.start} minDate={TODAY} onChange={(newStart) => onChange({ start: newStart, end: roundTo15(localPlus(newStart, 2)) })} />
+        <DateTimePicker label="End Time" value={value.end} minDate={value.start ? value.start.split('T')[0] : TODAY} onChange={(newEnd) => onChange({ ...value, end: newEnd })} />
 
-      {error && <div className="err-box">{error}</div>}
-
-      <DateTimePicker
-        label="Start Time"
-        value={value.start}
-        minDate={TODAY}
-        onChange={(newStart) =>
-          onChange({ start: newStart, end: roundTo15(localPlus(newStart, 2)) })
-        }
-      />
-
-      <DateTimePicker
-        label="End Time"
-        value={value.end}
-        minDate={value.start ? value.start.split('T')[0] : TODAY}
-        onChange={(newEnd) => onChange({ ...value, end: newEnd })}
-      />
-
-      {/* Duration indicator */}
-      {diffH > 0 && (
-        <div style={{
-          padding: '10px 14px',
-          background: isSurgeViolation ? 'var(--red-2)' : 'var(--cyan-2)',
-          border:     `1px solid ${isSurgeViolation ? 'rgba(245,83,90,0.25)' : 'rgba(56,232,208,0.2)'}`,
-          borderRadius: 'var(--r-md)',
-          color: isSurgeViolation ? 'var(--red)' : 'var(--cyan)',
-          fontSize: 13,
-          marginBottom: 20,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: 8, flexWrap: 'wrap',
-        }}>
-          <span>
-            {isSurgeViolation ? '⚡' : '⏱'} Duration:{' '}
-            <strong>{diffH.toFixed(1)}h</strong>
-          </span>
-          {hasSurgeData && (
-            <span style={{ fontSize: 11, opacity: 0.9 }}>
-              {isSurgeViolation
-                ? `Surge limit: max ${surgeMax}h at this hour`
-                : `OK — up to ${surgeMax}h allowed`}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Quick duration presets */}
-      <div style={{ marginBottom: 20 }}>
-        <span style={{
-          fontSize: 11, color: 'var(--text-label)', textTransform: 'uppercase',
-          letterSpacing: '0.08em', display: 'block', marginBottom: 8,
-        }}>
-          Quick Presets
-        </span>
-        <div className="gap-row">
-          {[1, 2, 3, 4].map(h => {
-            const wouldViolate = hasSurgeData && h > surgeMax;
-            return (
-              <button
-                key={h}
-                className="btn btn-sm btn-ghost"
-                disabled={wouldViolate}
-                title={wouldViolate ? `Surge limit: max ${surgeMax}h` : `Book for ${h} hour${h > 1 ? 's' : ''}`}
-                style={{
-                  opacity: wouldViolate ? 0.35 : 1,
-                  cursor:  wouldViolate ? 'not-allowed' : 'pointer',
-                  borderColor: !wouldViolate && h === Math.floor(diffH) ? 'var(--amber)' : undefined,
-                  color:       !wouldViolate && h === Math.floor(diffH) ? 'var(--amber)' : undefined,
-                }}
-                onClick={() => {
-                  const start = value.start || roundTo15(localNow(5));
-                  onChange({ start, end: roundTo15(localPlus(start, h)) });
-                }}
-              >
-                {h}h
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Heatmap filter controls ── */}
-      <div style={{
-        display: 'flex', gap: 8, alignItems: 'center',
-        flexWrap: 'wrap', marginBottom: 12,
-        padding: '10px 14px',
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border-dim)',
-        borderRadius: 'var(--r-md)',
-      }}>
-        <span style={{
-          fontSize: 11, color: 'var(--text-label)', textTransform: 'uppercase',
-          letterSpacing: '0.08em', whiteSpace: 'nowrap', flexShrink: 0,
-        }}>
-          Filter heatmap:
-        </span>
-        <select
-          className="fselect"
-          style={{ flex: '1 1 150px', minWidth: 120 }}
-          value={filterLocation}
-          onChange={e => setFilterLocation(e.target.value)}
-        >
-          <option value="">All Locations</option>
-          {locations.map(l => (
-            <option key={l.location_id} value={l.location_id}>
-              {l.building_name} · Fl {l.floor_number} · Rm {l.room_number}
-            </option>
-          ))}
-        </select>
-        <select
-          className="fselect"
-          style={{ flex: '1 1 120px', minWidth: 100 }}
-          value={filterNodeType}
-          onChange={e => setFilterNodeType(e.target.value)}
-        >
-          <option value="">All Types</option>
-          {Object.keys(NODE_ICON).map(t => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-        {(filterLocation || filterNodeType) && (
-          <button
-            className="btn btn-sm btn-ghost"
-            onClick={() => { setFilterLocation(''); setFilterNodeType(''); }}
-            style={{ flexShrink: 0 }}
-          >
-            ✕ Clear
-          </button>
+        {diffH > 0 && (
+          <div className={cn(
+            "flex items-center justify-between gap-4 p-3 rounded-[--radius-md] text-[13px] mb-5 border",
+            isSurgeViolation ? "bg-red-2 text-red border-red/25" : "bg-cyan-2 text-cyan border-cyan/20"
+          )}>
+            <div className="flex items-center gap-2">
+              {isSurgeViolation ? <AlertTriangle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+              <span>Duration: <strong>{diffH.toFixed(1)}h</strong></span>
+            </div>
+            {hasSurgeData && (
+              <span className="text-[11px] opacity-90">
+                {isSurgeViolation ? `Surge limit: max ${surgeMax}h at this hour` : `OK — up to ${surgeMax}h allowed`}
+              </span>
+            )}
+          </div>
         )}
-      </div>
 
-      {/* Heatmap */}
-      {heatmapLoading ? (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '14px 0', color: 'var(--text-low)', fontSize: 12, marginBottom: 20,
-        }}>
-          <span className="spinner" style={{ width: 14, height: 14 }} />
-          {filterLocation || filterNodeType
-            ? 'Updating heatmap for selected filter…'
-            : 'Loading predicted load matrix…'}
-        </div>
-      ) : (
-        <SurgeHeatmap heatmap={heatmap} startISO={value.start} />
-      )}
-
-      {/* Surge warning banner */}
-      {isSurgeViolation && (
-        <div style={{
-          padding: '12px 16px',
-          background: 'var(--red-2)', border: '1px solid rgba(245,83,90,0.3)',
-          borderRadius: 'var(--r-md)', marginBottom: 16,
-          display: 'flex', alignItems: 'flex-start', gap: 10,
-        }}>
-          <span style={{ fontSize: 18, flexShrink: 0 }}>⚡</span>
-          <div>
-            <div style={{ fontFamily: 'var(--font-h)', fontWeight: 700, color: 'var(--red)', fontSize: 13, marginBottom: 3 }}>
-              Surge Limit Active
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-mid)', lineHeight: 1.6 }}>
-              Predicted load is <strong style={{ color: 'var(--red)' }}>{(startLoad * 100).toFixed(0)}%</strong>{' '}
-              at your selected start time. Maximum allowed duration is{' '}
-              <strong style={{ color: 'var(--amber)' }}>{surgeMax} hour{surgeMax !== 1 ? 's' : ''}</strong>.
-              Move your booking to a quieter slot or reduce the duration.
-            </div>
+        <div className="mb-6">
+          <Label>Quick Presets</Label>
+          <div className="flex gap-2 flex-wrap mt-1.5">
+            {[1, 2, 3, 4].map(h => {
+              const wouldViolate = hasSurgeData && h > surgeMax;
+              return (
+                <Button
+                  key={h} variant="outline" size="sm" disabled={wouldViolate}
+                  className={cn(
+                    "font-[family-name:--font-mono]",
+                    wouldViolate ? "opacity-40" : "",
+                    !wouldViolate && h === Math.floor(diffH) ? "border-amber text-amber bg-amber/5" : ""
+                  )}
+                  onClick={() => {
+                    const start = value.start || roundTo15(localNow(5));
+                    onChange({ start, end: roundTo15(localPlus(start, h)) });
+                  }}
+                >
+                  {h}h
+                </Button>
+              );
+            })}
           </div>
         </div>
-      )}
 
-      <button
-        className="btn btn-primary btn-full"
-        onClick={validate}
-        disabled={isSurgeViolation}
-        style={{ opacity: isSurgeViolation ? 0.5 : 1, cursor: isSurgeViolation ? 'not-allowed' : 'pointer' }}
-      >
-        {isSurgeViolation ? '⚡ Resolve Surge Limit to Continue' : 'Next: Choose Location →'}
-      </button>
-    </div>
+        <div className="flex items-center gap-2.5 flex-wrap p-3 bg-surface border border-border-dim rounded-[--radius-md] mb-5">
+          <span className="text-[11px] text-text-label uppercase tracking-[0.08em] shrink-0 font-semibold">Heatmap Filters:</span>
+          <select className={selectClasses} value={filterLocation} onChange={e => setFilterLocation(e.target.value)}>
+            <option value="">All Locations</option>
+            {locations.map(l => <option key={l.location_id} value={l.location_id}>{l.building_name} · Fl {l.floor_number}</option>)}
+          </select>
+          <select className={selectClasses} value={filterNodeType} onChange={e => setFilterNodeType(e.target.value)}>
+            <option value="">All Types</option>
+            {Object.keys(NODE_ICON).map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          {(filterLocation || filterNodeType) && (
+            <Button variant="ghost" size="sm" onClick={() => { setFilterLocation(''); setFilterNodeType(''); }}>✕ Clear</Button>
+          )}
+        </div>
+
+        {heatmapLoading ? (
+          <div className="flex items-center gap-2.5 py-4 text-text-mid text-[12px] mb-5">
+            <Loader2 className="w-4 h-4 animate-spin text-amber" /> Loading predicted load matrix…
+          </div>
+        ) : <SurgeHeatmap heatmap={heatmap} startISO={value.start} />}
+
+        {isSurgeViolation && (
+          <div className="flex gap-3 p-4 bg-red-2 border border-red/25 rounded-[--radius-md] mb-5">
+            <AlertTriangle className="w-6 h-6 text-red shrink-0" />
+            <div>
+              <div className="font-[family-name:--font-heading] font-bold text-red text-[13px] mb-1">Surge Limit Active</div>
+              <div className="text-[12px] text-text-hi leading-relaxed opacity-90">
+                Predicted load is <strong className="text-red">{(startLoad * 100).toFixed(0)}%</strong> at your selected start time. Maximum allowed duration is <strong className="text-amber">{surgeMax} hour{surgeMax !== 1 ? 's' : ''}</strong>. Move your booking or reduce duration.
+              </div>
+            </div>
+          </div>
+        )}
+
+        <Button className="w-full" size="lg" onClick={validate} disabled={isSurgeViolation}>
+          {isSurgeViolation ? 'Resolve Surge Limit to Continue' : <>Next: Choose Location <ArrowRight className="w-4 h-4" /></>}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -575,103 +447,74 @@ function StepLocation({ value, onChange, onNext, onBack }) {
   const [error,     setError]     = useState('');
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await locationsAPI.list();
-        setLocations(data);
-      } catch (err) {
-        toast.error('Failed to load locations', err.message);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    locationsAPI.list().then(setLocations).catch(err => toast.error('Failed to load', err.message)).finally(() => setLoading(false));
   }, [toast]);
 
   const buildings = useMemo(() => [...new Set(locations.map(l => l.building_name))], [locations]);
   const floors    = useMemo(() => {
     if (!value.building) return [];
-    return [...new Set(
-      locations
-        .filter(l => l.building_name === value.building)
-        .map(l => l.floor_number)
-    )].sort((a, b) => a - b);
+    return [...new Set(locations.filter(l => l.building_name === value.building).map(l => l.floor_number))].sort((a, b) => a - b);
   }, [locations, value.building]);
 
   const resolvedLocation = useMemo(() => {
     if (!value.building || !value.floor) return null;
-    return locations.find(
-      l => l.building_name === value.building && l.floor_number === parseInt(value.floor, 10)
-    );
+    return locations.find(l => l.building_name === value.building && l.floor_number === parseInt(value.floor, 10));
   }, [locations, value]);
+
+  const selectClasses = "flex w-full rounded-[--radius-md] border border-border-mid bg-input px-3.5 py-2.5 text-[13px] font-[family-name:--font-mono] text-text-hi outline-none focus:border-amber focus:shadow-[0_0_0_3px_rgba(245,166,35,0.07)] cursor-pointer appearance-none bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%2710%27%20height=%276%27%3E%3Cpath%20d=%27M0%200l5%206%205-6z%27%20fill=%27%2355608a%27/%3E%3C/svg%3E')] bg-no-repeat bg-[right_13px_center] pr-9";
 
   function validate() {
     setError('');
-    if (!value.building)   { setError('Please select a building.'); return; }
-    if (!value.floor)      { setError('Please select a floor.'); return; }
+    if (!value.building) { setError('Please select a building.'); return; }
+    if (!value.floor)    { setError('Please select a floor.'); return; }
     if (!resolvedLocation) { setError('No rooms found for this floor.'); return; }
     onNext(resolvedLocation.location_id);
   }
 
-  if (loading) return <div className="loading-row"><span className="spinner" /> Loading locations…</div>;
+  if (loading) return <div className="flex items-center gap-2 text-text-mid"><Loader2 className="w-4 h-4 animate-spin" /> Loading locations…</div>;
 
   return (
-    <div className="card" style={{ maxWidth: 500 }}>
-      <div className="card-hd">
-        <span className="card-title">📍 Choose Location</span>
-      </div>
-      <p style={{ color: 'var(--text-mid)', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-        Select the building and floor. The grid will show every lab node in that area.
-      </p>
+    <Card className="max-w-[500px] animate-fade-up">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><MapPin className="w-5 h-5 text-amber" /> Choose Location</CardTitle>
+        <p className="text-[13px] text-text-mid mt-1">Select the building and floor to view the node grid.</p>
+      </CardHeader>
+      <CardContent>
+        {error && <div className="bg-red-2 border border-red/25 rounded-[--radius-md] px-4 py-3 text-red text-[13px] mb-5">{error}</div>}
 
-      {error && <div className="err-box">{error}</div>}
+        <div className="mb-4">
+          <Label>Building</Label>
+          <select className={selectClasses} value={value.building} onChange={(e) => onChange({ building: e.target.value, floor: '' })}>
+            <option value="">— Select building —</option>
+            {buildings.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+        </div>
 
-      <div className="fgroup">
-        <label className="flabel">Building</label>
-        <select
-          className="fselect"
-          value={value.building}
-          onChange={(e) => onChange({ building: e.target.value, floor: '' })}
-        >
-          <option value="">— Select building —</option>
-          {buildings.map(b => <option key={b} value={b}>{b}</option>)}
-        </select>
-      </div>
-
-      {value.building && (
-        <div className="fgroup">
-          <label className="flabel">Floor</label>
-          <div className="gap-row" style={{ marginTop: 2 }}>
-            {floors.map(f => (
-              <button
-                key={f}
-                className={`btn btn-sm ${value.floor === String(f) ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => onChange({ ...value, floor: String(f) })}
-              >
-                Floor {f}
-              </button>
-            ))}
+        {value.building && (
+          <div className="mb-5">
+            <Label>Floor</Label>
+            <div className="flex gap-2 flex-wrap mt-1">
+              {floors.map(f => (
+                <Button key={f} variant={value.floor === String(f) ? 'default' : 'outline'} onClick={() => onChange({ ...value, floor: String(f) })}>
+                  Floor {f}
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {resolvedLocation && (
-        <div style={{
-          padding: '10px 14px', background: 'var(--green-2)',
-          border: '1px solid rgba(47,214,122,0.2)', borderRadius: 'var(--r-md)',
-          color: 'var(--green)', fontSize: 12, marginBottom: 20,
-        }}>
-          ✓ {resolvedLocation.building_name}, Floor {resolvedLocation.floor_number}, Room {resolvedLocation.room_number}
-        </div>
-      )}
+        {resolvedLocation && (
+          <div className="flex items-center gap-2 bg-green-2 border border-green/25 text-green p-3 rounded-[--radius-md] text-[13px] mb-6">
+            <CheckCircle2 className="w-4 h-4" /> {resolvedLocation.building_name}, Floor {resolvedLocation.floor_number}, Room {resolvedLocation.room_number}
+          </div>
+        )}
 
-      <div className="gap-row" style={{ marginTop: 8 }}>
-        <button className="btn btn-ghost" onClick={onBack}>← Back</button>
-        <button className="btn btn-primary" style={{ flex: 1 }} onClick={validate}>
-          Next: View Node Grid →
-        </button>
-      </div>
-    </div>
+        <div className="flex gap-3 mt-2">
+          <Button variant="ghost" onClick={onBack}><ArrowLeft className="w-4 h-4" /> Back</Button>
+          <Button className="flex-1" onClick={validate}>Next: View Node Grid <ArrowRight className="w-4 h-4" /></Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -691,314 +534,185 @@ function StepGrid({ timeWindow, locationId, locationLabel, onBack, onSuccess }) 
   const endISO   = toISO(timeWindow.end);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setSelectedNode(null);
-      try {
-        const [all, available] = await Promise.all([
-          nodesAPI.atLocation(locationId),
-          nodesAPI.available(startISO, endISO, locationId),
-        ]);
-        setAllNodes(all);
-        setAvailableIds(new Set(available.map(n => n.node_id)));
-      } catch (err) {
-        toast.error('Failed to load node grid', err.message);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    setLoading(true); setSelectedNode(null);
+    Promise.all([
+      nodesAPI.atLocation(locationId),
+      nodesAPI.available(startISO, endISO, locationId),
+    ]).then(([all, available]) => {
+      setAllNodes(all); setAvailableIds(new Set(available.map(n => n.node_id)));
+    }).catch(err => toast.error('Failed to load', err.message)).finally(() => setLoading(false));
   }, [locationId, startISO, endISO, toast]);
 
   async function handleBook() {
     if (!selectedNode) return;
     setBooking(true);
     try {
-      const res = await reservationsAPI.book({
-        user_id:    user.user_id,
-        node_id:    selectedNode.node_id,
-        start_time: startISO,
-        end_time:   endISO,
-      });
+      const res = await reservationsAPI.book({ user_id: user.user_id, node_id: selectedNode.node_id, start_time: startISO, end_time: endISO });
       setBookingSuccess({ ...res, node: selectedNode });
       toast.success('Booking confirmed!', `${selectedNode.node_name} is yours`);
     } catch (err) {
-      const detail = err.message || '';
       if (err.status === 409) {
-        if (detail === 'user_conflict') {
-          toast.error(
-            'You already have a booking',
-            'You cannot reserve multiple nodes at the same time. Cancel your existing reservation first.'
-          );
-        } else if (detail.startsWith('surge_conflict:')) {
-          const maxH = detail.split(':')[1] || '?';
-          toast.error(
-            'Surge limit enforced by server',
-            `This time slot allows a maximum of ${maxH}h due to high predicted demand. ` +
-            `Reduce your booking window or choose a quieter slot.`
-          );
-        } else {
-          toast.error('Hardware just taken', 'Another user booked this node just now. Pick a different one.');
-          const available = await nodesAPI.available(startISO, endISO, locationId).catch(() => []);
-          setAvailableIds(new Set(available.map(n => n.node_id)));
-          setSelectedNode(null);
-        }
-      } else {
-        toast.error('Booking failed', err.message);
-      }
-    } finally {
-      setBooking(false);
-    }
+        if (err.message === 'user_conflict') toast.error('You already have a booking', 'Cancel existing reservation first.');
+        else if (err.message.startsWith('surge_conflict:')) toast.error('Surge limit enforced', `Reduce window or pick quieter slot.`);
+        else { toast.error('Taken', 'Another user just booked this.'); setSelectedNode(null); }
+      } else toast.error('Failed', err.message);
+    } finally { setBooking(false); }
   }
 
-  if (loading) return <div className="loading-row"><span className="spinner" /> Scanning node availability…</div>;
+  if (loading) return <div className="flex items-center gap-2 text-text-mid"><Loader2 className="w-4 h-4 animate-spin" /> Scanning availability…</div>;
 
   if (bookingSuccess) {
     return (
-      <div className="card" style={{ maxWidth: 520, animation: 'fadeUp 0.3s ease both' }}>
-        <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>✓</div>
-          <h2 style={{ fontFamily: 'var(--font-h)', fontSize: 24, marginBottom: 8, color: 'var(--green)' }}>
-            Booking Confirmed!
-          </h2>
-          <p style={{ color: 'var(--text-mid)', fontSize: 13, marginBottom: 24 }}>
-            Reservation #{bookingSuccess.reservation_id} is locked in.
-          </p>
-        </div>
-        <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--r-lg)', padding: 20, marginBottom: 20 }}>
-          {[
-            ['Node',     bookingSuccess.node.node_name],
-            ['Type',     bookingSuccess.node.node_type],
-            ['Location', locationLabel],
-            ['From',     new Date(timeWindow.start).toLocaleString()],
-            ['Until',    new Date(timeWindow.end).toLocaleString()],
-          ].map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border-dim)' }}>
-              <span style={{ color: 'var(--text-low)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{k}</span>
-              <span style={{ color: 'var(--text-hi)', fontWeight: 500 }}>{v}</span>
-            </div>
-          ))}
-        </div>
-        <button className="btn btn-primary btn-full" onClick={onSuccess}>View My Bookings →</button>
-      </div>
+      <Card className="max-w-[520px] animate-fade-up">
+        <CardContent className="p-8 pt-10 text-center">
+          <CheckCircle2 className="w-16 h-16 text-green mx-auto mb-4" />
+          <h2 className="font-[family-name:--font-heading] text-2xl font-bold text-green mb-2">Booking Confirmed!</h2>
+          <p className="text-text-mid text-[13px] mb-8">Reservation #{bookingSuccess.reservation_id} is locked in.</p>
+          
+          <div className="bg-surface rounded-[--radius-lg] border border-border-dim p-5 text-left mb-8">
+            {[
+              ['Node', bookingSuccess.node.node_name], ['Type', bookingSuccess.node.node_type],
+              ['Location', locationLabel], ['From', new Date(timeWindow.start).toLocaleString('en-IN')],
+              ['Until', new Date(timeWindow.end).toLocaleString('en-IN')]
+            ].map(([k, v]) => (
+              <div key={k} className="flex justify-between py-2 border-b border-border-dim last:border-0">
+                <span className="text-[11px] text-text-low uppercase tracking-[0.08em]">{k}</span>
+                <span className="text-[13px] font-medium">{v}</span>
+              </div>
+            ))}
+          </div>
+          <Button className="w-full" size="lg" onClick={onSuccess}>View My Bookings <ArrowRight className="w-4 h-4 ml-1" /></Button>
+        </CardContent>
+      </Card>
     );
   }
 
-  const visibleNodes = allNodes.filter(n => {
-    if (isStudent && n.access_level === 'Professor') return false;
-    return true;
-  });
+  const visibleNodes = allNodes.filter(n => !(isStudent && n.access_level === 'Professor'));
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+    <div className="animate-fade-up">
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 800 }}>Node Grid</h2>
-          <p style={{ color: 'var(--text-mid)', fontSize: 12, marginTop: 2 }}>
-            {locationLabel} · {visibleNodes.length} node{visibleNodes.length !== 1 ? 's' : ''} shown
-          </p>
+          <h2 className="font-[family-name:--font-heading] text-xl font-bold flex items-center gap-2"><Cpu className="w-5 h-5 text-amber" /> Node Grid</h2>
+          <p className="text-text-mid text-[12px] mt-1">{locationLabel} · {visibleNodes.length} nodes shown</p>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {[
-            { label: 'Available', dot: 'var(--cyan)' },
-            { label: 'Booked',    dot: 'var(--text-low)' },
-            { label: 'Selected',  dot: 'var(--amber)' },
-            ...(!isStudent ? [{ label: 'Prof Only', dot: 'var(--violet)' }] : []),
-          ].map(({ label, dot }) => (
-            <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-mid)' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, display: 'inline-block' }} />
-              {label}
-            </span>
-          ))}
+        <div className="flex gap-4">
+          <span className="flex items-center gap-1.5 text-[11px] text-text-low"><div className="w-3 h-3 bg-surface border border-green/50 rounded-sm" /> Available</span>
+          <span className="flex items-center gap-1.5 text-[11px] text-text-low"><div className="w-3 h-3 bg-[#16131f] border border-red/30 rounded-sm" /> In Use</span>
         </div>
       </div>
 
-      {visibleNodes.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">◫</div>
-          <div className="empty-title">No nodes at this location</div>
-          <div className="empty-sub" style={{ marginBottom: 16 }}>Try a different floor or building</div>
-          <button className="btn btn-ghost" onClick={onBack}>← Go Back</button>
-        </div>
-      ) : (
-        <>
-          <div className="node-grid">
-            {visibleNodes.map(node => {
-              const isAvailable = availableIds.has(node.node_id) && node.status === 'Available';
-              const isBooked    = !isAvailable && node.status === 'Available';
-              const isProfOnly  = node.access_level === 'Professor';
-              const isOffline   = node.status !== 'Available';
-              const isSelected  = selectedNode?.node_id === node.node_id;
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3.5 mb-8">
+        {visibleNodes.map(n => {
+          const isAvail  = availableIds.has(n.node_id) && n.status === 'Available';
+          const isSel    = selectedNode?.node_id === n.node_id;
+          const isProf   = n.access_level === 'Professor';
+          const NodeIcon = getNodeIcon(n.node_type);
 
-              let cellClass = 'node-cell';
-              if (isSelected)     cellClass += ' selected';
-              else if (isBooked)  cellClass += ' unavail';
-              else if (isOffline) cellClass += ' offline-cell';
-
-              return (
-                <div
-                  key={node.node_id}
-                  className={cellClass}
-                  onClick={isAvailable ? () => setSelectedNode(isSelected ? null : node) : undefined}
-                  title={
-                    isOffline  ? `${node.status}` :
-                    isBooked   ? 'Booked in this window' :
-                    isProfOnly ? 'Professor access' :
-                    node.node_name
-                  }
-                >
-                  {isProfOnly && !isStudent && (
-                    <span className="node-cell-lock">🔒</span>
-                  )}
-                  <div className="node-cell-icon">{getNodeIcon(node.node_type)}</div>
-                  <div className="node-cell-name">{node.node_name}</div>
-                  <div className="node-cell-type">{node.node_type}</div>
-                  <div className="node-cell-badge">
-                    <span style={{
-                      display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
-                      background: isSelected ? 'var(--amber)'
-                                : isOffline  ? 'var(--red)'
-                                : isBooked   ? 'var(--text-low)'
-                                : 'var(--green)',
-                    }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {selectedNode && (
-            <div className="node-detail-panel">
-              <div className="node-detail-hd">
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                    <span style={{ fontSize: 28 }}>{getNodeIcon(selectedNode.node_type)}</span>
-                    <div>
-                      <h3 style={{ fontSize: 20, fontWeight: 800 }}>{selectedNode.node_name}</h3>
-                      <div className="gap-row" style={{ marginTop: 4 }}>
-                        <span className="badge badge-cyan">{selectedNode.node_type}</span>
-                        {selectedNode.access_level === 'Professor' && (
-                          <span className="badge badge-violet">Prof Access</span>
-                        )}
-                        <span className="badge badge-green">Available</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <button className="modal-close" onClick={() => setSelectedNode(null)}>×</button>
+          return (
+            <div
+              key={n.node_id}
+              onClick={() => isAvail && setSelectedNode(n)}
+              className={cn(
+                "p-4 rounded-[--radius-md] border transition-all relative overflow-hidden select-none",
+                !isAvail ? "bg-[#16131f] border-border-dim opacity-50 cursor-not-allowed" :
+                isSel ? "bg-amber-2 border-amber/50 shadow-[0_0_20px_rgba(245,166,35,0.1)] cursor-default scale-[1.02]" :
+                "bg-surface border-border-mid cursor-pointer hover:border-amber/40 hover:bg-elevated"
+              )}
+            >
+              {isProf && <div className="absolute top-0 right-0 px-2 py-0.5 bg-violet-2 text-violet text-[9px] uppercase font-bold tracking-[0.05em] rounded-bl-[--radius-md]">Prof</div>}
+              {isSel && <div className="absolute top-0 right-0 w-2 h-2 m-2 bg-amber rounded-full animate-pulse" />}
+              
+              <div className="flex items-center gap-2 mb-2">
+                <NodeIcon className={cn("w-4 h-4", isSel ? "text-amber" : isAvail ? "text-green" : "text-text-low")} />
+                <span className={cn("font-bold text-[14px]", isSel ? "text-amber" : "text-text-hi")}>{n.node_name}</span>
               </div>
+              <div className="text-[11px] text-text-low uppercase tracking-[0.06em] flex justify-between">
+                <span>{n.node_type}</span>
+                {!isAvail ? <span className="text-red">In Use</span> : <span className="text-green opacity-60">Ready</span>}
+              </div>
+            </div>
+          );
+        })}
+        {visibleNodes.length === 0 && <div className="col-span-full text-center py-12 text-text-mid border border-dashed border-border-mid rounded-[--radius-lg]">No nodes available for your access level here.</div>}
+      </div>
 
-              <div className="specs-grid">
-                {Object.entries(selectedNode.hardware_specs || {}).map(([key, val]) => (
-                  <div key={key} className="spec-item">
-                    <div className="spec-key">{key.replace(/_/g, ' ')}</div>
-                    <div className="spec-val">{String(val)}</div>
+      <div className="flex gap-5 flex-wrap items-start">
+        {selectedNode ? (
+          <Card className="flex-[2] min-w-[300px]">
+            <CardHeader className="py-4 border-b border-border-dim"><CardTitle className="text-sm">Hardware Specs</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <div className="grid grid-cols-2">
+                {selectedNode.hardware_specs && Object.entries(selectedNode.hardware_specs).map(([k, v]) => (
+                  <div key={k} className="p-3 border-b border-r border-border-dim">
+                    <div className="text-[10px] text-text-label uppercase tracking-[0.08em] mb-1">{k}</div>
+                    <div className="text-[12px] text-text-hi font-medium truncate" title={v}>{v || '—'}</div>
                   </div>
                 ))}
               </div>
-
-              <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--r-md)', padding: '14px 16px', marginBottom: 18, fontSize: 13, color: 'var(--text-mid)' }}>
-                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-                  <span>🕐 <strong style={{ color: 'var(--text-hi)' }}>
-                    {new Date(timeWindow.start).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </strong></span>
-                  <span>→</span>
-                  <span>🕐 <strong style={{ color: 'var(--text-hi)' }}>
-                    {new Date(timeWindow.end).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </strong></span>
-                  <span style={{ color: 'var(--cyan)' }}>⏱ {((new Date(timeWindow.end) - new Date(timeWindow.start)) / 3600000).toFixed(1)}h</span>
-                </div>
-              </div>
-
-              <div className="gap-row">
-                <button className="btn btn-ghost" onClick={() => setSelectedNode(null)}>Deselect</button>
-                <button
-                  className="btn btn-primary btn-lg"
-                  style={{ flex: 1 }}
-                  onClick={handleBook}
-                  disabled={booking}
-                >
-                  {booking
-                    ? <><span className="spinner" style={{ width: 15, height: 15 }} /> Confirming…</>
-                    : `Confirm Booking — ${selectedNode.node_name}`}
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div style={{ marginTop: 20 }}>
-            <button className="btn btn-ghost btn-sm" onClick={onBack}>← Back to Location</button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="flex-[2] min-w-[300px] border border-dashed border-border-mid rounded-[--radius-lg] flex items-center justify-center text-text-low text-[13px] min-h-[120px]">
+            Select an available node to view specs
           </div>
-        </>
-      )}
+        )}
+
+        <div className="flex-1 min-w-[240px] flex flex-col gap-3">
+          <Button size="lg" className="w-full text-[14px]" disabled={!selectedNode || booking} onClick={handleBook}>
+            {booking ? <><Loader2 className="w-4 h-4 animate-spin" /> Provisioning…</> : 'Confirm Booking'}
+          </Button>
+          <Button variant="ghost" className="w-full" onClick={onBack}>← Back to Location</Button>
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ── Root Wizard ────────────────────────────────────────── */
+/* ── Main Wizard Component ──────────────────────────────── */
 export default function BookingWizard({ onBookingComplete }) {
-  const [step,    setStep]    = useState(1);
+  const [step, setStep] = useState(1);
   const [maxDone, setMaxDone] = useState(0);
 
-  const [timeWindow,  setTimeWindow]  = useState({
-    start: roundTo15(localNow(5)),
-    end:   roundTo15(localNow(125)),
-  });
+  const [timeWindow, setTimeWindow] = useState({ start: roundTo15(localNow(5)), end: roundTo15(localPlus(localNow(5), 2)) });
   const [locationSel, setLocationSel] = useState({ building: '', floor: '' });
-  const [locationId,  setLocationId]  = useState(null);
-  const [locationLbl, setLocationLbl] = useState('');
+  const [locationId, setLocationId] = useState(null);
 
-  function goTo(n) {
-    if (n <= maxDone + 1) setStep(n);
-  }
+  const [locationsCache, setLocationsCache] = useState([]);
+  useEffect(() => { locationsAPI.list().then(setLocationsCache).catch(()=>{}); }, []);
 
-  function nextFromStep1() {
-    setMaxDone(m => Math.max(m, 1));
-    setStep(2);
-  }
-
-  function nextFromStep2(locId) {
-    setLocationId(locId);
-    const { building, floor } = locationSel;
-    setLocationLbl(`${building} · Floor ${floor}`);
-    setMaxDone(m => Math.max(m, 2));
-    setStep(3);
-  }
+  const resolvedLocName = useMemo(() => {
+    if (!locationId || !locationsCache.length) return '';
+    const l = locationsCache.find(x => x.location_id === locationId);
+    return l ? `${l.building_name} · Floor ${l.floor_number}` : '';
+  }, [locationId, locationsCache]);
 
   return (
-    <div className="wizard-shell">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Book Hardware</h1>
-          <p className="page-subtitle">Reserve lab compute nodes in 3 steps</p>
-        </div>
+    <div className="pb-10">
+      <div className="mb-8 border-b border-border-dim pb-5">
+        <h1 className="font-[family-name:--font-heading] text-[26px] font-extrabold flex items-center gap-2"><CircuitBoard className="w-6 h-6 text-amber" /> Provision Hardware</h1>
+        <p className="text-[13px] text-text-mid mt-1">Reserve compute clusters, GPUs, and lab endpoints securely.</p>
       </div>
 
-      <WizardSteps step={step} maxDone={maxDone} onGoTo={goTo} />
+      <WizardSteps step={step} maxDone={maxDone} onGoTo={setStep} />
 
       {step === 1 && (
         <StepTime
-          value={timeWindow}
-          onChange={setTimeWindow}
-          onNext={nextFromStep1}
+          value={timeWindow} onChange={setTimeWindow}
+          onNext={() => { setMaxDone(Math.max(maxDone, 1)); setStep(2); }}
         />
       )}
-
       {step === 2 && (
         <StepLocation
-          value={locationSel}
-          onChange={setLocationSel}
-          onNext={nextFromStep2}
+          value={locationSel} onChange={setLocationSel}
           onBack={() => setStep(1)}
+          onNext={(locId) => { setLocationId(locId); setMaxDone(Math.max(maxDone, 2)); setStep(3); }}
         />
       )}
-
       {step === 3 && (
         <StepGrid
-          timeWindow={timeWindow}
-          locationId={locationId}
-          locationLabel={locationLbl}
-          onBack={() => setStep(2)}
-          onSuccess={onBookingComplete}
+          timeWindow={timeWindow} locationId={locationId} locationLabel={resolvedLocName}
+          onBack={() => setStep(2)} onSuccess={onBookingComplete}
         />
       )}
     </div>

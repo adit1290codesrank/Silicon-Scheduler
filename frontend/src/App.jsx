@@ -8,6 +8,7 @@ import RegisterPage from './pages/RegisterPage';
 import MyBookingsPage from './pages/MyBookingsPage';
 import AdminDashboard from './pages/AdminDashboard';
 import BookingWizard from './pages/BookingWizard';
+import { Loader2, Cpu } from 'lucide-react';
 
 /* ── Inner app (uses auth context) ──────────────────────── */
 function AppInner() {
@@ -17,13 +18,13 @@ function AppInner() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--bg-void)' }}>
-        <div style={{ textAlign: 'center', color: 'var(--text-mid)' }}>
-          <div style={{ fontSize: 36, marginBottom: 16 }}>⬡</div>
-          <div style={{ fontFamily: 'var(--font-h)', fontSize: 18, letterSpacing: '-0.02em', marginBottom: 8 }}>
+      <div className="min-h-screen grid place-items-center bg-void">
+        <div className="text-center text-text-mid">
+          <Cpu className="w-9 h-9 text-amber mx-auto mb-4" />
+          <div className="font-[family-name:--font-heading] text-lg tracking-tight mb-3">
             Silicon Scheduler
           </div>
-          <span className="spinner" />
+          <Loader2 className="w-5 h-5 animate-spin text-amber mx-auto" />
         </div>
       </div>
     );
@@ -63,10 +64,10 @@ function AppInner() {
       case 'admin':
         if (!isAdmin) {
           return (
-            <div className="empty-state">
-              <div className="empty-icon">🚫</div>
-              <div className="empty-title">Access Denied</div>
-              <div className="empty-sub">You don't have permission to view this page.</div>
+            <div className="text-center py-16 text-text-low">
+              <div className="text-4xl mb-3 opacity-40">🚫</div>
+              <div className="font-[family-name:--font-heading] text-base text-text-mid mb-1.5">Access Denied</div>
+              <div className="text-[12px]">You don't have permission to view this page.</div>
             </div>
           );
         }

@@ -1,6 +1,8 @@
 import os
 import json
+import random
 import bcrypt
+from datetime import datetime, timedelta
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
@@ -69,6 +71,66 @@ CREATE TABLE Reservation_log (
     previous_hash VARCHAR(64),
     block_hash VARCHAR(64) NOT NULL
 );
+
+-- Cryptographic Extension
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- The Cryptographic Trigger Logic
+CREATE OR REPLACE FUNCTION seal_reservation_audit()
+RETURNS TRIGGER AS $$
+DECLARE
+    prev_hash VARCHAR(64);
+    new_hash VARCHAR(64);
+    payload TEXT;
+    v_user_id_str VARCHAR;
+BEGIN
+    -- Get the hash of the last block
+    SELECT block_hash INTO prev_hash FROM Reservation_log ORDER BY log_id DESC LIMIT 1;
+    
+    -- If log is empty, use the Genesis Hash
+    IF prev_hash IS NULL THEN
+        prev_hash := '0000000000000000000000000000000000000000000000000000000000000000';
+    END IF;
+
+    -- Grab the user_id injected by Python's SET LOCAL command
+    BEGIN
+        v_user_id_str := current_setting('app.current_user_id', true);
+        IF v_user_id_str IS NULL OR v_user_id_str = '' THEN
+            v_user_id_str := 'SYSTEM';
+        END IF;
+    EXCEPTION WHEN OTHERS THEN
+        v_user_id_str := 'SYSTEM';
+    END;
+
+    -- Create the string payload EXACTLY as Python does: prev + id + action + status + user
+    IF TG_OP = 'DELETE' THEN
+        payload := prev_hash || OLD.reservation_id || TG_OP || OLD.status || v_user_id_str;
+    ELSE
+        payload := prev_hash || NEW.reservation_id || TG_OP || NEW.status || v_user_id_str;
+    END IF;
+
+    -- Generate SHA-256 hash
+    new_hash := encode(digest(payload, 'sha256'), 'hex');
+
+    -- Insert into Reservation_log
+    IF TG_OP = 'DELETE' THEN
+        INSERT INTO Reservation_log (reservation_id, action, status, action_by_user_id, previous_hash, block_hash)
+        VALUES (OLD.reservation_id, TG_OP, OLD.status, NULLIF(v_user_id_str, 'SYSTEM')::INT, prev_hash, new_hash);
+        RETURN OLD;
+    ELSE
+        INSERT INTO Reservation_log (reservation_id, action, status, action_by_user_id, previous_hash, block_hash)
+        VALUES (NEW.reservation_id, TG_OP, NEW.status, NULLIF(v_user_id_str, 'SYSTEM')::INT, prev_hash, new_hash);
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Attach the Trigger to Reservations table
+DROP TRIGGER IF EXISTS audit_reservations_trigger ON Reservations;
+CREATE TRIGGER audit_reservations_trigger
+AFTER INSERT OR UPDATE OR DELETE ON Reservations
+FOR EACH ROW EXECUTE FUNCTION seal_reservation_audit();
+REVOKE UPDATE, DELETE ON Reservation_log FROM PUBLIC;
 """
 
 def populate_db():
@@ -121,7 +183,48 @@ def populate_db():
             VALUES ('ADMIN01', 'System Administrator', 'admin@silicon.edu', :pw, 'Admin')
         """), {"pw": admin_pw})
 
-    print("✅ Database successfully reset and seeded (Locations, Nodes, and Admin User)!")
+        # --- 4. TEST STUDENT USER ---
+        print("🧪 Seeding Test Student...")
+        test_pw = bcrypt.hashpw(b"testpass", bcrypt.gensalt()).decode('utf-8')
+        test_user = conn.execute(text("""
+            INSERT INTO Users (roll_number, full_name, email, password_hash, role)
+            VALUES ('TEST01', 'Test Student', 'test@silicon.edu', :pw, 'Student')
+            RETURNING user_id;
+        """), {"pw": test_pw}).fetchone()
+        test_uid = test_user[0]
+
+        # --- 5. HISTORICAL RESERVATIONS (500) ---
+        print("📊 Seeding 100 historical reservations...")
+        conn.execute(text("SET LOCAL app.current_user_id = :uid"), {"uid": test_uid})
+
+        available_nodes = conn.execute(
+            text("SELECT node_id FROM Lab_Nodes WHERE status = 'Available'")
+        ).fetchall()
+        node_ids = [r[0] for r in available_nodes]
+
+        inserts = []
+        base_date = datetime.now() - timedelta(days=90)
+        for i in range(100):
+            day_offset = random.randint(0, 89)
+            hour = random.randint(8, 20)
+            duration = random.choice([1, 2, 3])
+            start = (base_date + timedelta(days=day_offset)).replace(
+                hour=hour, minute=0, second=0, microsecond=0
+            )
+            end = start + timedelta(hours=duration)
+            inserts.append({
+                "user": test_uid,
+                "node": random.choice(node_ids),
+                "start": start.strftime("%Y-%m-%d %H:%M:%S"),
+                "end": end.strftime("%Y-%m-%d %H:%M:%S"),
+            })
+
+        conn.execute(text("""
+            INSERT INTO Reservations (user_id, node_id, start_time, end_time, status)
+            VALUES (:user, :node, CAST(:start AS TIMESTAMP), CAST(:end AS TIMESTAMP), 'Completed')
+        """), inserts)
+
+    print(f"✅ Database reset & seeded (Admin + Test Student + {len(inserts)} reservations)!")
 
 if __name__ == "__main__":
     confirm = input("⚠️ This will WIPE the current database and rebuild it. Type 'YES' to continue: ")
