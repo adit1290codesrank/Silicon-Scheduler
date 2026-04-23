@@ -1,4 +1,7 @@
-# Silicon-Scheduler
+# Silicon Scheduler — SQL Queries & Race Condition Handling
+
+> A complete, presentation-ready reference for every query in the system and how concurrency is managed.
+
 ---
 
 ## Table of Contents
